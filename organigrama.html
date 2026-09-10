@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Porcerámica · Organigrama</title>
+<style>
+  :root{ --thread:#ffb648; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;
+    background:radial-gradient(ellipse at 50% 45%, #000000 0%, #0b1a2b 70%);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:#fff;-webkit-tap-highlight-color:transparent;
+  }
+  .stage{position:fixed;inset:0;overflow:hidden;}
+  #world{
+    position:absolute;top:0;left:0;width:3400px;height:3400px;
+    transform-origin:0 0;
+    transition:transform 1.25s cubic-bezier(.62,.02,.14,1);
+    will-change:transform;
+  }
+  svg{overflow:visible;display:block;}
+  #chart{width:3400px;height:3400px;}
+
+  .node{cursor:pointer;transition:opacity .7s ease;}
+  .node .ring{fill:none;stroke:#fff;stroke-opacity:.92;}
+  .node .halo{fill:none;stroke:var(--thread);stroke-width:0;opacity:0;
+    transition:stroke-width .5s, opacity .5s;}
+  .node.focus .halo{stroke-width:10;opacity:.95;}
+  .node.picked .halo{stroke-width:14;opacity:1;stroke:#7ff0c4;}
+  .lbl{fill:#fff;text-anchor:middle;font-weight:800;letter-spacing:.01em;
+    pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.42);
+    stroke-width:3px;stroke-linejoin:round;}
+  .sub{fill:rgba(255,255,255,.95);text-anchor:middle;font-weight:700;
+    pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2.5px;}
+  .node:hover .wedge,.node:hover .fillc,.node:hover .halfp{filter:brightness(1.12);}
+  .link{fill:none;stroke-width:6;stroke-opacity:.5;transition:opacity .7s;}
+
+  /* Píldora con la dotación, debajo del nombre.
+     Sólida = número escrito a mano. Contorneada = suma automática. */
+  .cnt-box{pointer-events:none;}
+  .cnt-box.auto rect{fill:rgba(0,0,0,.34);stroke:rgba(255,255,255,.55);stroke-width:2;}
+  .cnt-box.auto text{fill:#fff;}
+  .cnt-box.fixed rect{fill:var(--thread);stroke:none;}
+  .cnt-box.fixed text{fill:#0b1a2b;}
+  .cnt-box text{text-anchor:middle;font-weight:800;letter-spacing:.02em;}
+
+  #threadGlow{fill:none;stroke:var(--thread);stroke-width:32;
+    stroke-linecap:round;opacity:.15;filter:blur(12px);}
+  #threadPath{fill:none;stroke:var(--thread);stroke-width:13;
+    stroke-linecap:round;stroke-linejoin:round;
+    filter:drop-shadow(0 0 20px rgba(255,182,72,.85));}
+  .thread-dot{fill:var(--thread);filter:drop-shadow(0 0 12px rgba(255,182,72,.9));}
+
+  .brand{position:fixed;top:22px;left:26px;z-index:30;
+    font-size:16px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.62);}
+  .brand b{color:var(--thread);}
+  .brand .total{display:block;margin-top:6px;font-size:13px;letter-spacing:.06em;
+    color:rgba(255,255,255,.45);font-weight:700;}
+  .brand .total b{color:#fff;font-size:15px;}
+
+  .hud-right{position:fixed;top:18px;right:24px;z-index:40;display:flex;gap:10px;}
+  .btn{background:rgba(255,255,255,.08);color:#fff;
+    border:1.5px solid rgba(255,255,255,.18);padding:12px 22px;
+    border-radius:100px;font-size:16px;font-weight:800;cursor:pointer;
+    backdrop-filter:blur(10px);transition:opacity .4s, background .25s;}
+  .btn:hover{background:rgba(255,255,255,.18);}
+  .btn.off{opacity:0;pointer-events:none;}
+  .btn.accent{background:var(--thread);color:#0b1a2b;border-color:transparent;}
+  .btn.accent:hover{background:#ffc76d;}
+  .btn.live{background:#7ff0c4;color:#06231a;border-color:transparent;}
+  .btn.live:hover{background:#9df7d6;}
+
+  #crumbs{position:fixed;bottom:0;left:0;right:0;z-index:30;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px 20px 24px;overflow-x:auto;
+    background:linear-gradient(to top, rgba(6,16,28,.96) 30%, rgba(6,16,28,0));}
+  .crumb{display:flex;align-items:center;gap:10px;padding:10px 20px;
+    border-radius:100px;cursor:pointer;font-size:17px;font-weight:800;
+    letter-spacing:.02em;color:rgba(255,255,255,.62);white-space:nowrap;
+    transition:all .35s;}
+  .crumb .dot{width:12px;height:12px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .crumb:hover{color:#fff;}
+  .crumb.on{color:#0b1a2b;background:var(--thread);box-shadow:0 0 24px rgba(255,182,72,.5);}
+  .link-line{width:26px;height:2px;flex-shrink:0;background:rgba(255,182,72,.35);}
+
+  /* ---------- PANEL DE EDICIÓN ---------- */
+  #panel{position:fixed;top:0;right:0;bottom:0;width:380px;z-index:35;
+    background:rgba(8,20,34,.96);backdrop-filter:blur(18px);
+    border-left:1px solid rgba(255,255,255,.12);
+    display:flex;flex-direction:column;
+    transform:translateX(100%);transition:transform .38s cubic-bezier(.5,0,.2,1);
+    overflow-y:auto;}
+  #panel.open{transform:translateX(0);}
+  #panel .phdr{padding:78px 24px 16px;border-bottom:1px solid rgba(255,255,255,.1);}
+  #panel .phdr .eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;
+    color:var(--thread);text-transform:uppercase;}
+  #panel .phdr h2{font-size:20px;font-weight:800;margin-top:6px;line-height:1.25;}
+  #panel .phdr .where{font-size:12px;color:rgba(255,255,255,.45);margin-top:8px;}
+  #panel .body{padding:20px 24px 28px;display:flex;flex-direction:column;gap:18px;}
+  .fld label{display:block;font-size:11px;letter-spacing:.12em;font-weight:800;
+    color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:7px;}
+  .fld input[type=text],.fld input[type=number],.fld textarea{
+    width:100%;background:rgba(255,255,255,.07);color:#fff;
+    border:1.5px solid rgba(255,255,255,.16);border-radius:10px;
+    padding:11px 13px;font-size:15px;font-family:inherit;font-weight:600;}
+  .fld textarea{resize:vertical;min-height:74px;line-height:1.4;}
+  .fld input:focus,.fld textarea:focus{outline:none;border-color:var(--thread);
+    background:rgba(255,255,255,.11);}
+  .fld .hint{font-size:11.5px;color:rgba(255,255,255,.42);margin-top:6px;line-height:1.5;}
+  .calcrow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:11px 13px;}
+  .calcrow .num{font-size:22px;font-weight:800;color:var(--thread);}
+  .calcrow .txt{font-size:12px;color:rgba(255,255,255,.55);line-height:1.4;}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;
+    color:rgba(255,255,255,.8);cursor:pointer;margin-top:10px;}
+  .chk input{width:17px;height:17px;accent-color:var(--thread);cursor:pointer;}
+  .swatches{display:flex;flex-wrap:wrap;gap:8px;}
+  .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;
+    border:2px solid transparent;transition:transform .15s;}
+  .sw:hover{transform:scale(1.12);}
+  .sw.on{border-color:#fff;}
+  .acts{display:flex;flex-direction:column;gap:9px;
+    border-top:1px solid rgba(255,255,255,.1);padding-top:18px;}
+  .act{width:100%;text-align:left;background:rgba(255,255,255,.07);color:#fff;
+    border:1.5px solid rgba(255,255,255,.14);border-radius:10px;
+    padding:12px 14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;
+    transition:background .2s;}
+  .act:hover{background:rgba(255,255,255,.15);}
+  .act.primary{background:var(--thread);color:#0b1a2b;border-color:transparent;}
+  .act.primary:hover{background:#ffc76d;}
+  .act.danger{color:#ff9c9c;border-color:rgba(255,120,120,.35);}
+  .act.danger:hover{background:rgba(255,90,90,.18);}
+  .act:disabled{opacity:.35;cursor:not-allowed;}
+  .rowbtns{display:flex;gap:9px;}
+  .rowbtns .act{text-align:center;}
+  .datatools{border-top:1px solid rgba(255,255,255,.1);padding-top:18px;
+    display:flex;flex-direction:column;gap:9px;}
+  .datatools .lbl2{font-size:11px;letter-spacing:.12em;font-weight:800;
+    color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:2px;}
+
+  #toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);
+    z-index:60;background:rgba(10,24,40,.97);border:1px solid rgba(255,255,255,.16);
+    color:#fff;padding:13px 22px;border-radius:100px;font-size:14.5px;font-weight:700;
+    opacity:0;pointer-events:none;transition:opacity .3s, transform .3s;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);max-width:80vw;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.bad{border-color:rgba(255,120,120,.5);color:#ffc9c9;}
+
+  #offline{position:fixed;inset:0;z-index:80;display:none;
+    align-items:center;justify-content:center;padding:40px;
+    background:rgba(4,12,22,.96);backdrop-filter:blur(8px);}
+  #offline.show{display:flex;}
+  #offline .card{max-width:560px;text-align:center;}
+  #offline h2{font-size:24px;font-weight:800;margin-bottom:14px;}
+  #offline p{font-size:15px;line-height:1.65;color:rgba(255,255,255,.7);margin-bottom:16px;}
+  #offline code{display:block;background:rgba(255,255,255,.08);padding:14px 18px;
+    border-radius:10px;font-size:15px;color:var(--thread);font-weight:700;
+    margin:10px 0 18px;font-family:Consolas,monospace;}
+
+  /* ---------- HOJA DE IMPRESIÓN ----------
+     Se mantiene renderizada fuera de pantalla (no display:none) para que
+     el navegador pueda medir el texto; solo aparece al imprimir. */
+  #printSheet{position:absolute;left:-100000px;top:0;width:400mm;
+    background:#0b1a2b;color:#fff;padding:4mm 5mm;}
+  .phead{border-bottom:1.2pt solid rgba(255,182,72,.65);padding-bottom:2mm;margin-bottom:3mm;
+    display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;}
+  .phead h1{font-size:23pt;font-weight:800;letter-spacing:.05em;}
+  .phead h1 span{color:var(--thread);font-weight:700;}
+  .phead .psub{font-size:11pt;opacity:.72;margin-top:1mm;letter-spacing:.04em;}
+  .phead .ptot{text-align:right;flex:0 0 auto;}
+  .phead .ptot b{display:block;font-size:26pt;font-weight:800;color:var(--thread);line-height:1;}
+  .phead .ptot span{font-size:9.5pt;opacity:.65;letter-spacing:.08em;}
+  .pgrid{display:grid;grid-template-columns:1fr 1.18fr 1fr;gap:5mm;align-items:start;}
+  .pmid{display:flex;flex-direction:column;gap:3mm;}
+  .ringwrap{width:122mm;align-self:center;}
+  .areas{display:grid;grid-template-columns:1fr 1fr;gap:3mm;}
+  .cluster{margin-bottom:6mm;}
+  .chead{display:flex;align-items:baseline;gap:2.4mm;font-size:15.5pt;font-weight:800;
+    letter-spacing:.05em;padding-bottom:1.4mm;margin-bottom:2mm;
+    border-bottom:1pt solid rgba(255,255,255,.28);}
+  .chead .cdot{width:3.4mm;height:3.4mm;border-radius:50%;background:#4a86c4;flex:0 0 auto;}
+  .chead em{font-style:normal;font-size:10pt;font-weight:600;opacity:.6;letter-spacing:.02em;}
+  .chead .ctot{margin-left:auto;font-size:12pt;color:var(--thread);letter-spacing:0;}
+  .depts{display:grid;grid-template-columns:1fr 1fr;gap:3mm;}
+  .dept{border-left:2mm solid var(--c);background:rgba(255,255,255,.055);
+    border-radius:1.6mm;padding:2.6mm 3.2mm;break-inside:avoid;}
+  .dept h4{font-size:12pt;font-weight:800;letter-spacing:.03em;color:var(--c);
+    margin-bottom:1mm;filter:brightness(1.25);
+    display:flex;justify-content:space-between;align-items:baseline;gap:2mm;}
+  .dept h4 i{font-style:normal;font-size:10.5pt;color:#fff;opacity:.85;}
+  .dept ul{list-style:none;}
+  .dept li{font-size:11pt;font-weight:600;line-height:1.46;opacity:.95;
+    display:flex;justify-content:space-between;gap:2mm;}
+  .dept li span:first-child::before{content:'· ';opacity:.55;}
+  .dept li i{font-style:normal;opacity:.6;flex:0 0 auto;}
+
+  @media print{
+    @page{ size:A3 landscape; margin:8mm; }
+    html,body{overflow:visible;height:auto;background:#0b1a2b !important;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .stage,.brand,#crumbs,.hud-right,#panel,#toast,#offline{display:none !important;}
+    #printSheet{position:static;left:0;width:auto;padding:0;}
+    .pgrid{gap:4mm;}
+    section.cluster,.dept{break-inside:avoid;page-break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<div class="brand">PORCERAMICA <b>/ ORGANIGRAMA</b>
+  <span class="total" id="brandTotal"></span>
+</div>
+
+<div class="hud-right">
+  <button id="back" class="btn off">‹ Volver</button>
+  <button id="editBtn" class="btn">Editar</button>
+  <button id="printBtn" class="btn accent">Imprimir todo</button>
+</div>
+
+<div class="stage">
+  <div id="world"><svg id="chart" viewBox="0 0 3400 3400"></svg></div>
+</div>
+
+<div id="crumbs"></div>
+
+<aside id="panel">
+  <div class="phdr">
+    <div class="eyebrow" id="pKind">Puesto</div>
+    <h2 id="pTitle">—</h2>
+    <div class="where" id="pWhere"></div>
+  </div>
+  <div class="body" id="pBody"></div>
+</aside>
+
+<div id="toast"></div>
+
+<div id="offline">
+  <div class="card">
+    <h2>No se pudo conectar con el servidor del organigrama</h2>
+    <p>Los datos viven en una base SQLite, así que el organigrama se abre desde el
+       servidor y no haciendo doble clic al archivo. Abrí una terminal en la carpeta
+       del proyecto y ejecutá:</p>
+    <code>node server.js</code>
+    <p>Después entrá a <b>http://localhost:3000</b></p>
+  </div>
+</div>
+
+<div id="printSheet"></div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const CX=1700, CY=1700;
+const svg=document.getElementById('chart');
+const world=document.getElementById('world');
+function E(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function P(cx,cy,d,deg){const r=deg*Math.PI/180;return{x:cx+d*Math.cos(r),y:cy+d*Math.sin(r)};}
+function pol(d,deg){return P(CX,CY,d,deg);}
+
+const PALETTE=['#e0b83a','#f08a3c','#5fa85f','#2a9d9d','#5b8fc7','#2c5d8f',
+               '#1e4a7d','#123a5f','#8e5fb5','#c0574f'];
+
+/* geometría del núcleo y la corona */
+const CORE_R=290, RI=312, RO=580, RMID=(RI+RO)/2, BORDER_R=600;
+
+/* ============ ESTADO ============ */
+const state={
+  tree:null,        // árbol tal como lo devuelve la API
+  byId:{},          // índice id -> nodo, con la geometría ya calculada
+  path:['center'],  // ruta de navegación
+  editMode:false,
+  selected:null,
+  editKey:null,     // clave de edición, si el servidor la pide
+  requiresKey:false,
+};
+
+/* ============ API ============ */
+async function api(method,url,body){
+  const headers={};
+  if(body!==undefined)headers['Content-Type']='application/json';
+  if(state.editKey)headers['X-Edit-Key']=state.editKey;
+  const res=await fetch(url,{method,headers,
+    body:body===undefined?undefined:JSON.stringify(body)});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){
+    const err=new Error(data.error||`Error ${res.status}`);
+    err.status=res.status;
+    throw err;
+  }
+  return data;
+}
+
+/* Envuelve una escritura: pide la clave si hace falta, avisa el resultado y
+   vuelve a dibujar con el árbol que devolvió el servidor. */
+async function mutate(fn,okMsg){
+  try{
+    const data=await fn();
+    if(data&&data.tree){state.tree=data.tree;rebuild();}
+    if(okMsg)toast(okMsg);
+    return data;
+  }catch(err){
+    if(err.status===401){
+      const key=prompt('Clave de edición:');
+      if(key){
+        state.editKey=key;
+        return mutate(fn,okMsg);
+      }
+      toast('Se necesita la clave para editar',true);
+      return null;
+    }
+    toast(err.message||'No se pudo guardar',true);
+    return null;
+  }
+}
+
+let toastTimer=null;
+function toast(msg,bad){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.toggle('bad',!!bad);
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+/* ============ LAYOUT ============
+   Los ángulos ya no se escriben a mano: cada grupo de hermanos se reparte el
+   espacio angular que le toca. Por eso agregar un departamento o una sucursal
+   reacomoda la corona sin tocar código. Con la estructura original el reparto
+   da exactamente los mismos ángulos que estaban fijos antes. */
+
+function radiusFor(node,depth,branch){
+  if(node.radius)return node.radius;
+  if(node.kind==='half')return CORE_R*0.62;
+  if(node.kind==='wedge')return (RO-RI)/2;
+  if(node.kind==='suc')return 212;
+  if(branch==='suc')return depth===2?118:(depth===3?74:62);
+  return depth===3?86:70;                     // rama del núcleo
+}
+
+function layout(){
+  const byId={};
+  const root=state.tree;
+  if(!root)return byId;
+
+  root.x=CX;root.y=CY;root.outward=0;root.depth=0;root.r=CORE_R;
+  byId[root.id]=root;
+
+  const kids=root.children||[];
+  const halves=kids.filter(k=>k.kind==='half');
+  const others=kids.filter(k=>k.kind!=='half');
+
+  // las mitades se reparten los 360° arrancando en 90°
+  halves.forEach((h,i)=>{
+    const span=360/halves.length;
+    h.a0=90+span*i;
+    h.a1=h.a0+span;
+    const mid=(h.a0+h.a1)/2;
+    const d=4*CORE_R/(3*Math.PI);            // centroide del semicírculo
+    const p=pol(d,mid);
+    h.x=p.x;h.y=p.y;h.outward=mid;
+  });
+
+  // las sucursales se reparten los 360° arrancando en -90°
+  others.forEach((s,i)=>{
+    const a=-90+360/others.length*i;
+    s.angle=a;
+    s.dist=s.dist||1020;
+    const p=pol(s.dist,a);
+    s.x=p.x;s.y=p.y;s.outward=a;
+  });
+
+  (function walk(node,parent,depth,branch){
+    node.parent=parent?parent.id:null;
+    node.depth=depth;
+    node.branch=branch;
+    if(depth>0)node.r=radiusFor(node,depth,branch);
+    byId[node.id]=node;
+
+    const list=node.children||[];
+    if(!list.length)return;
+
+    if(depth===0){
+      list.forEach(k=>walk(k,node,1,k.kind==='suc'?'suc':'core'));
+      return;
+    }
+
+    if(node.kind==='half'){
+      // los gajos se reparten el arco de su mitad
+      const span=(node.a1-node.a0)/list.length;
+      list.forEach((k,i)=>{
+        k.a0=node.a0+span*i;
+        k.a1=k.a0+span;
+        const mid=(k.a0+k.a1)/2;
+        const p=pol(RMID,mid);
+        k.x=p.x;k.y=p.y;k.outward=mid;
+        walk(k,node,depth+1,branch);
+      });
+      return;
+    }
+
+    // círculos: se abren en abanico hacia afuera del padre
+    const outward=node.outward!==undefined?node.outward
+      :Math.atan2(node.y-CY,node.x-CX)*180/Math.PI;
+    const kr=radiusFor(list[0],depth+1,branch);
+    const base=node.kind==='wedge'?(RO-RMID):node.r;
+    const dist=base+kr+(node.kind==='wedge'?190:(depth===1?185:110));
+    const minStep=2*Math.asin(Math.min(1,(kr*2.6)/(2*dist)))*180/Math.PI;
+    const step=Math.max(minStep, node.kind==='wedge'?34:(depth===1?36:30));
+    const start=outward-(list.length-1)*step/2;
+    list.forEach((k,i)=>{
+      const a=list.length===1?outward:start+step*i;
+      const p=P(node.x,node.y,dist,a);
+      k.x=p.x;k.y=p.y;k.outward=a;
+      walk(k,node,depth+1,branch);
+    });
+  })(root,null,0,'root');
+
+  return byId;
+}
+
+/* ============ HELPERS DE DIBUJO ============ */
+function curveD(x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1;
+  const mx=x1+dx*.5-dy*.05,my=y1+dy*.5+dx*.05;
+  return `M${x1},${y1} Q${mx},${my} ${x2},${y2}`;
+}
+function annulus(cx,cy,ri,ro,a1,a2){
+  const p1=P(cx,cy,ro,a1),p2=P(cx,cy,ro,a2);
+  const p3=P(cx,cy,ri,a2),p4=P(cx,cy,ri,a1);
+  const lg=(a2-a1)>180?1:0;
+  return `M${p1.x},${p1.y} A${ro},${ro} 0 ${lg} 1 ${p2.x},${p2.y}
+          L${p3.x},${p3.y} A${ri},${ri} 0 ${lg} 0 ${p4.x},${p4.y} Z`;
+}
+function halfPath(cx,cy,r,a1,a2){
+  const p1=P(cx,cy,r,a1),p2=P(cx,cy,r,a2);
+  const lg=(a2-a1)>180?1:0;
+  return `M${cx},${cy} L${p1.x},${p1.y} A${r},${r} 0 ${lg} 1 ${p2.x},${p2.y} Z`;
+}
+// espacio libre dentro de un gajo desde su punto medio, en una dirección
+function sectorExtent(cx,cy,ri,ro,a0,a1,ux,uy){
+  const mid=(a0+a1)/2, p0=P(cx,cy,(ri+ro)/2,mid);
+  const inside=t=>{
+    const x=p0.x+ux*t,y=p0.y+uy*t,dx=x-cx,dy=y-cy;
+    const rr=Math.hypot(dx,dy);
+    if(rr<ri||rr>ro)return false;
+    let d=(Math.atan2(dy,dx)*180/Math.PI)-mid;d=((d+540)%360)-180;
+    return Math.abs(d)<=(a1-a0)/2;
+  };
+  if(!inside(1))return 1;
+  let lo=0,hi=ro;
+  for(let i=0;i<40;i++){const m=(lo+hi)/2;inside(m)?lo=m:hi=m;}
+  return lo;
+}
+
+/* Dibuja el nombre y, debajo, la píldora con la dotación. */
+function drawText(g,node,cx,cy,maxW,maxH,forceFs,store){
+  const lines=node.label.split('\n'),hasSub=!!node.sub;
+  const showCount=node.total>0||node.isManual;
+  const BASE=100;
+
+  const t=E('text',{class:'lbl','font-size':BASE,x:cx,y:cy});
+  lines.forEach((l,i)=>{const ts=E('tspan',{x:cx,dy:i===0?0:BASE});ts.textContent=l;t.appendChild(ts);});
+  g.appendChild(t);
+  let widest=1;
+  for(const ts of t.childNodes){const w=ts.getComputedTextLength?ts.getComputedTextLength():0;if(w>widest)widest=w;}
+
+  let sEl=null,subW=1;
+  if(hasSub){
+    sEl=E('text',{class:'sub','font-size':BASE,x:cx,y:cy});
+    sEl.textContent=node.sub;g.appendChild(sEl);
+    subW=sEl.getComputedTextLength?sEl.getComputedTextLength():1;
+  }
+
+  const byW=maxW/(widest/BASE);
+  const bySubW=hasSub?maxW/((subW*0.78)/BASE):Infinity;
+  const byH=maxH/(lines.length*1.2+(hasSub?1.15:0)+(showCount?1.5:0));
+  const fs=forceFs||Math.max(14,Math.min(byW,bySubW,byH,80));
+
+  const lh=fs*1.22;
+  const block=(lines.length-1)*lh+(hasSub?fs*1.5:0)+(showCount?fs*1.5:0);
+  const y0=cy-block/2+fs*0.34;
+
+  t.setAttribute('font-size',fs.toFixed(1));t.setAttribute('y',y0.toFixed(1));
+  Array.from(t.childNodes).forEach((ts,i)=>ts.setAttribute('dy',i===0?0:lh.toFixed(1)));
+
+  let cursor=y0+(lines.length-1)*lh;
+  if(sEl){
+    cursor+=fs*1.45;
+    sEl.setAttribute('font-size',(fs*0.78).toFixed(1));
+    sEl.setAttribute('y',cursor.toFixed(1));
+  }
+
+  if(showCount){
+    const cf=fs*0.86;                       // tamaño del número
+    const txt=String(node.total);
+    const h=cf*1.34;
+    const w=Math.max(h,cf*0.62*txt.length+cf*0.86);
+    // Todo se mide desde un único centro: el rectángulo se reparte h/2 para cada
+    // lado, y la línea base del número baja media altura de mayúscula (≈0.35em
+    // en Segoe UI) para que el dígito quede ópticamente centrado en la píldora.
+    const pc=cursor+fs*1.30;
+    const box=E('g',{class:'cnt-box '+(node.isManual?'fixed':'auto')});
+    box.appendChild(E('rect',{x:(cx-w/2).toFixed(1),y:(pc-h/2).toFixed(1),
+      width:w.toFixed(1),height:h.toFixed(1),rx:(h/2).toFixed(1)}));
+    const nt=E('text',{x:cx,y:(pc+cf*0.35).toFixed(1),'font-size':cf.toFixed(1)});
+    nt.textContent=txt;
+    box.appendChild(nt);
+    g.appendChild(box);
+  }
+
+  if(store!==false){node._tp={g,cx,cy,maxW,maxH};node._fs=fs;}
+  return fs;
+}
+
+function unifySiblings(byId){
+  const groups={};
+  Object.values(byId).forEach(n=>{if(!n._tp)return;
+    const key=(n.parent||'root')+'|'+(n.kind||'c');
+    (groups[key]=groups[key]||[]).push(n);});
+  Object.values(groups).forEach(list=>{
+    if(list.length<2)return;
+    const min=Math.min(...list.map(n=>n._fs));
+    list.forEach(n=>{
+      if(Math.abs(n._fs-min)<0.5)return;
+      const {g,cx,cy,maxW,maxH}=n._tp;
+      g.querySelectorAll('text,.cnt-box').forEach(t=>t.remove());
+      drawText(g,n,cx,cy,maxW,maxH,min);
+    });
+  });
+}
+
+/* ============ RENDER ============ */
+const gLinks=E('g',{});svg.appendChild(gLinks);
+const gThread=E('g',{});svg.appendChild(gThread);
+const threadGlow=E('path',{id:'threadGlow',d:''});
+const threadPath=E('path',{id:'threadPath',d:''});
+gThread.appendChild(threadGlow);gThread.appendChild(threadPath);
+const gDots=E('g',{});svg.appendChild(gDots);
+const gRing=E('g',{});svg.appendChild(gRing);
+const gNodes=E('g',{});svg.appendChild(gNodes);
+
+function onNodeClick(id,ev){
+  ev.stopPropagation();
+  if(state.editMode){select(id);return;}
+  navigate(id);
+}
+
+function render(){
+  gLinks.innerHTML='';gRing.innerHTML='';gNodes.innerHTML='';gDots.innerHTML='';
+  const byId=state.byId;
+  const root=state.tree;
+  const halves=(root.children||[]).filter(k=>k.kind==='half');
+
+  // aro exterior
+  gRing.appendChild(E('circle',{cx:CX,cy:CY,r:BORDER_R,fill:'none',stroke:'#173a5e','stroke-width':34}));
+  gRing.appendChild(E('circle',{cx:CX,cy:CY,r:BORDER_R+18,fill:'none',stroke:'#0f2947','stroke-width':5,'stroke-opacity':.8}));
+
+  // gajos de la corona
+  halves.forEach(h=>(h.children||[]).forEach(w=>{
+    const g=E('g',{class:'node',id:'n_'+w.id});
+    gRing.appendChild(g);
+    g.appendChild(E('path',{class:'halo',d:annulus(CX,CY,RI,RO,w.a0,w.a1),fill:'none'}));
+    g.appendChild(E('path',{class:'wedge',d:annulus(CX,CY,RI,RO,w.a0,w.a1),fill:w.color,
+      stroke:'#0f2947','stroke-width':7}));
+    const hx=Math.min(sectorExtent(CX,CY,RI,RO,w.a0,w.a1,1,0),sectorExtent(CX,CY,RI,RO,w.a0,w.a1,-1,0));
+    const hy=Math.min(sectorExtent(CX,CY,RI,RO,w.a0,w.a1,0,1),sectorExtent(CX,CY,RI,RO,w.a0,w.a1,0,-1));
+    drawText(g,w,w.x,w.y,hx*1.80,hy*1.62);
+    g.addEventListener('click',e=>onNodeClick(w.id,e));
+    g.addEventListener('dblclick',e=>{e.stopPropagation();navigate(w.id);});
+    w.el=g;
+  }));
+
+  // las mitades del núcleo
+  halves.forEach(h=>{
+    const g=E('g',{class:'node',id:'n_'+h.id});
+    gRing.appendChild(g);
+    g.appendChild(E('path',{class:'halo',d:halfPath(CX,CY,CORE_R+14,h.a0,h.a1),fill:'none'}));
+    g.appendChild(E('path',{class:'halfp',d:halfPath(CX,CY,CORE_R,h.a0,h.a1),fill:h.color,
+      stroke:'#fff','stroke-width':5,'stroke-opacity':.9}));
+    drawText(g,h,h.x,h.y,CORE_R*0.74,CORE_R*1.05);
+    g.addEventListener('click',e=>onNodeClick(h.id,e));
+    g.addEventListener('dblclick',e=>{e.stopPropagation();navigate(h.id);});
+    h.el=g;
+  });
+  gRing.appendChild(E('circle',{cx:CX,cy:CY,r:RI,fill:'none',stroke:'#0f2947','stroke-width':12}));
+
+  // círculos: sucursales, departamentos, cargos y subáreas
+  (function circles(node){
+    (node.children||[]).forEach(k=>{
+      if(k.kind==='half'||k.kind==='wedge'){circles(k);return;}
+      // el enlace nace del centro del gajo, no de un punto del aro que puede
+      // caer sobre otro gajo y parecer una línea suelta
+      const from = node.kind==='core'? pol(BORDER_R,k.outward)
+                 : node.kind==='wedge'? pol(RMID,(node.a0+node.a1)/2)
+                 : {x:node.x,y:node.y};
+      const p=E('path',{class:'link',d:curveD(from.x,from.y,k.x,k.y),stroke:k.color});
+      gLinks.appendChild(p);k.linkEl=p;
+      const g=E('g',{class:'node',id:'n_'+k.id});
+      gNodes.appendChild(g);
+      g.appendChild(E('circle',{class:'halo',cx:k.x,cy:k.y,r:k.r+18}));
+      g.appendChild(E('circle',{class:'fillc',cx:k.x,cy:k.y,r:k.r,fill:k.color}));
+      g.appendChild(E('circle',{class:'ring',cx:k.x,cy:k.y,r:k.r,'stroke-width':Math.max(2,k.r*0.045)}));
+      drawText(g,k,k.x,k.y,k.r*1.66,k.r*1.46);
+      g.addEventListener('click',e=>onNodeClick(k.id,e));
+      g.addEventListener('dblclick',e=>{e.stopPropagation();navigate(k.id);});
+      k.el=g;
+      circles(k);
+    });
+  })(root);
+
+  unifySiblings(byId);
+}
+
+/* Recalcula geometría, redibuja y refresca todo lo que dependa del árbol. */
+function rebuild(){
+  state.byId=layout();
+  // la ruta puede apuntar a un nodo que se borró
+  state.path=state.path.filter(id=>state.byId[id]);
+  if(!state.path.length)state.path=['center'];
+  if(state.selected&&!state.byId[state.selected])state.selected=null;
+  render();
+  update();
+  buildPrint();
+  document.getElementById('brandTotal').innerHTML=
+    `<b>${state.tree.total}</b> personas en la organización`;
+  if(state.editMode)renderPanel();
+}
+
+/* ============ NAVEGACIÓN ============ */
+const backBtn=document.getElementById('back');
+const crumbs=document.getElementById('crumbs');
+
+function ancestors(id){const o=[];let c=state.byId[id];while(c){o.unshift(c.id);c=c.parent?state.byId[c.parent]:null;}return o;}
+function anchorOf(id){
+  const n=state.byId[id];
+  if(!n)return{x:CX,y:CY};
+  if(id===state.tree.id)return{x:CX,y:CY};
+  return{x:n.x,y:n.y};
+}
+
+function applyVisibility(){
+  const cur=state.path[state.path.length-1], node=state.byId[cur];
+  const root=state.tree;
+  const halves=(root.children||[]).filter(k=>k.kind==='half');
+  const sucs=(root.children||[]).filter(k=>k.kind!=='half');
+
+  const vis=new Set(state.path);
+  (node.children||[]).forEach(k=>vis.add(k.id));
+  halves.forEach(h=>vis.add(h.id));           // el núcleo siempre visible
+
+  if(cur===root.id||node.kind==='suc'){
+    sucs.forEach(s=>vis.add(s.id));
+  }else if(node.kind==='wedge'){
+    (state.byId[node.parent].children||[]).forEach(w=>vis.add(w.id));
+  }
+
+  Object.values(state.byId).forEach(n=>{
+    if(!n.el)return;
+    const show=vis.has(n.id);
+    const active=state.path.includes(n.id)||(node.children||[]).some(k=>k.id===n.id);
+    n.el.style.opacity=show?(active?1:0.32):0;
+    n.el.style.pointerEvents=show?'auto':'none';
+    n.el.classList.toggle('focus',n.id===cur);
+    n.el.classList.toggle('picked',state.editMode&&n.id===state.selected);
+    if(n.linkEl){n.linkEl.style.opacity=(show&&vis.has(n.parent))?1:0;}
+  });
+}
+
+function drawThread(){
+  if(state.path.length<2){threadPath.setAttribute('d','');threadGlow.setAttribute('d','');gDots.innerHTML='';return;}
+  let d='';
+  for(let i=0;i<state.path.length-1;i++){
+    const a=anchorOf(state.path[i]),b=anchorOf(state.path[i+1]);
+    const seg=curveD(a.x,a.y,b.x,b.y);
+    d+=(i===0?seg:seg.replace(/^M[^Q]+/,' '));
+  }
+  threadPath.setAttribute('d',d);threadGlow.setAttribute('d',d);
+  const len=threadPath.getTotalLength();
+  threadPath.style.transition='none';
+  threadPath.style.strokeDasharray=len;threadPath.style.strokeDashoffset=len;
+  void threadPath.getBoundingClientRect();
+  threadPath.style.transition='stroke-dashoffset 1.1s cubic-bezier(.5,0,.2,1)';
+  threadPath.style.strokeDashoffset=0;
+  gDots.innerHTML='';
+  state.path.forEach((id,i)=>{
+    const a=anchorOf(id);
+    const c=E('circle',{class:'thread-dot',cx:a.x,cy:a.y,r:14});
+    c.style.opacity=0;c.style.transition=`opacity .4s ${i*0.12}s`;
+    gDots.appendChild(c);requestAnimationFrame(()=>{c.style.opacity=1;});
+  });
+}
+
+function frameOf(node){
+  const box=[];
+  const add=(x,y,r)=>box.push({x,y,r});
+  const shape=n=>{
+    if(n.kind==='wedge'){
+      for(let a=n.a0;a<=n.a1;a+=3){
+        const p1=pol(RI,a),p2=pol(RO,a);add(p1.x,p1.y,4);add(p2.x,p2.y,4);
+      }
+    }else if(n.kind==='half'){
+      for(let a=n.a0;a<=n.a1;a+=5){const p=pol(CORE_R,a);add(p.x,p.y,4);}
+      add(CX,CY,4);
+    }else add(CX,CY,BORDER_R+22);
+  };
+  const put=id=>{
+    const n=state.byId[id];if(!n)return;
+    if(n.id===state.tree.id)add(CX,CY,BORDER_R+22);
+    else if(n.kind==='wedge'||n.kind==='half')shape(n);
+    else add(n.x,n.y,n.r+16);
+  };
+  put(node.id);
+  if(node.parent)put(node.parent);
+  (node.children||[]).forEach(k=>{
+    if(k.kind==='wedge'||k.kind==='half')shape(k);
+    else add(k.x,k.y,k.r+16);
+  });
+  let x1=1/0,y1=1/0,x2=-1/0,y2=-1/0;
+  box.forEach(b=>{x1=Math.min(x1,b.x-b.r);y1=Math.min(y1,b.y-b.r);
+                  x2=Math.max(x2,b.x+b.r);y2=Math.max(y2,b.y+b.r);});
+  return{cx:(x1+x2)/2,cy:(y1+y2)/2,w:x2-x1,h:y2-y1};
+}
+
+function zoom(node){
+  const f=frameOf(node), padTop=80,padBottom=110,padSide=70;
+  const panelW=state.editMode?380:0;
+  const vw=window.innerWidth-padSide*2-panelW, vh=window.innerHeight-padTop-padBottom;
+  const scale=Math.min(vw/f.w,vh/f.h,4);
+  world.style.transform=
+    `translate(${padSide+vw/2-f.cx*scale}px,${padTop+vh/2-f.cy*scale}px) scale(${scale})`;
+}
+
+function renderCrumbs(){
+  crumbs.innerHTML='';
+  state.path.forEach((id,i)=>{
+    const n=state.byId[id];if(!n)return;
+    if(i>0){const l=document.createElement('div');l.className='link-line';crumbs.appendChild(l);}
+    const b=document.createElement('div');
+    b.className='crumb'+(i===state.path.length-1?' on':'');
+    const dot=document.createElement('span');dot.className='dot';
+    dot.style.background=i===state.path.length-1?'#0b1a2b':(n.color||'#fff');
+    b.appendChild(dot);
+    const t=document.createElement('span');
+    t.textContent=n.label.replace(/\n/g,' ')+'  ·  '+n.total;
+    b.appendChild(t);
+    b.onclick=()=>{state.path=state.path.slice(0,i+1);update();};
+    crumbs.appendChild(b);
+  });
+}
+
+function update(){
+  applyVisibility();drawThread();
+  zoom(state.byId[state.path[state.path.length-1]]);renderCrumbs();
+  backBtn.classList.toggle('off',state.path.length<=1);
+}
+
+function navigate(id){
+  if(!state.byId[id])return;
+  if(id===state.path[state.path.length-1])return;
+  const i=state.path.indexOf(id);
+  state.path=i>=0?state.path.slice(0,i+1):ancestors(id);
+  update();
+}
+
+backBtn.onclick=()=>{if(state.path.length>1){state.path.pop();update();}};
+document.addEventListener('keydown',e=>{
+  const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(typing)return;
+  if((e.key==='Escape'||e.key==='Backspace')&&state.path.length>1){state.path.pop();update();}
+});
+window.addEventListener('resize',()=>zoom(state.byId[state.path[state.path.length-1]]));
+
+/* ============ EDICIÓN ============ */
+const panel=document.getElementById('panel');
+const editBtn=document.getElementById('editBtn');
+
+const KIND_NAME={core:'Organización',half:'Área',wedge:'Departamento',
+                 suc:'Sucursal',node:'Puesto'};
+
+function setEditMode(on){
+  state.editMode=on;
+  editBtn.textContent=on?'Salir de edición':'Editar';
+  editBtn.classList.toggle('live',on);
+  panel.classList.toggle('open',on);
+  if(!on)state.selected=null;
+  else if(!state.selected)state.selected=state.path[state.path.length-1];
+  renderPanel();
+  applyVisibility();
+  zoom(state.byId[state.path[state.path.length-1]]);
+}
+editBtn.onclick=()=>setEditMode(!state.editMode);
+
+function select(id){
+  state.selected=id;
+  renderPanel();
+  applyVisibility();
+}
+
+function fld(label,inner,hint){
+  return `<div class="fld"><label>${label}</label>${inner}
+    ${hint?`<div class="hint">${hint}</div>`:''}</div>`;
+}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* La hoja de impresión se arma con innerHTML, así que un color guardado en la base
+   nunca se interpola tal cual: si no es un hexadecimal real se descarta. El
+   servidor ya lo valida al guardar; esto es la segunda barrera, por si la base
+   trae datos viejos o cargados por fuera de la API. */
+const safeColor=v=>/^#[0-9a-fA-F]{3,8}$/.test(String(v??'').trim())?String(v).trim():'#5b8fc7';
+
+function renderPanel(){
+  if(!state.editMode)return;
+  const id=state.selected;
+  const n=id?state.byId[id]:null;
+  const body=document.getElementById('pBody');
+
+  if(!n){
+    document.getElementById('pKind').textContent='Edición';
+    document.getElementById('pTitle').textContent='Elegí una posición';
+    document.getElementById('pWhere').textContent='';
+    body.innerHTML=`<div class="hint">Hacé clic en cualquier círculo, gajo o media
+      luna del organigrama para editarlo. Doble clic para navegar hacia adentro.</div>`;
+    return;
+  }
+
+  const parent=n.parent?state.byId[n.parent]:null;
+  const isRoot=!n.parent;
+  document.getElementById('pKind').textContent=KIND_NAME[n.kind]||'Puesto';
+  document.getElementById('pTitle').textContent=n.label.replace(/\n/g,' ');
+  document.getElementById('pWhere').textContent=
+    ancestors(n.id).slice(0,-1).map(a=>state.byId[a].label.replace(/\n/g,' ')).join('  ›  ')||'Raíz';
+
+  const kidsTotal=n.childrenTotal||0;
+  const auto=n.autoTotal||0;
+
+  body.innerHTML=`
+    ${fld('Nombre',`<textarea id="fLabel" rows="3">${esc(n.label)}</textarea>`,
+         'Cada salto de línea es un renglón dentro del círculo.')}
+    ${fld('Subtítulo (opcional)',`<input type="text" id="fSub" value="${esc(n.sub||'')}">`)}
+    ${fld('Personas en este puesto',
+         `<input type="number" min="0" id="fOwn" value="${n.own||0}">`,
+         'Sólo la gente de este puesto. Un departamento que sólo agrupa a otros va en 0.')}
+
+    <div class="fld">
+      <label>Total mostrado</label>
+      <div class="calcrow">
+        <span class="num">${n.total}</span>
+        <span class="txt">${n.isManual
+          ? `Fijado a mano. El cálculo daría <b>${auto}</b>.`
+          : `${n.own||0} de este puesto + ${kidsTotal} de ${n.children&&n.children.length?'los que dependen de él':'nadie debajo'}`}</span>
+      </div>
+      <label class="chk"><input type="checkbox" id="fFix" ${n.isManual?'checked':''}>
+        Fijar el total a mano</label>
+      <input type="number" min="0" id="fTotal" value="${n.isManual?n.totalOverride:n.total}"
+        style="margin-top:9px;${n.isManual?'':'display:none'}">
+    </div>
+
+    ${fld('Color',`<div class="swatches">${PALETTE.map(c=>
+      `<div class="sw${c.toLowerCase()===String(n.color).toLowerCase()?' on':''}"
+        data-color="${c}" style="background:${c}"></div>`).join('')}</div>`)}
+
+    <div class="acts">
+      <button class="act primary" id="aAdd">+ Agregar posición dentro</button>
+      ${isRoot?'':`
+      <div class="rowbtns">
+        <button class="act" id="aUp">↑ Subir</button>
+        <button class="act" id="aDown">↓ Bajar</button>
+      </div>
+      <button class="act" id="aDup">Duplicar esta posición</button>
+      <button class="act danger" id="aDel">Eliminar${n.children&&n.children.length
+        ? ` (y ${countDesc(n)} más debajo)`:''}</button>`}
+    </div>
+
+    <div class="datatools">
+      <div class="lbl2">Datos</div>
+      <button class="act" id="aExport">Descargar respaldo (JSON)</button>
+      <button class="act" id="aImport">Restaurar desde un respaldo</button>
+      <button class="act danger" id="aReset">Volver a la estructura original</button>
+    </div>`;
+
+  wirePanel(n);
+}
+
+function countDesc(n){let c=0;(function w(x){(x.children||[]).forEach(k=>{c++;w(k);});})(n);return c;}
+
+function wirePanel(n){
+  const $=id=>document.getElementById(id);
+  const save=patch=>mutate(()=>api('PATCH',`/api/nodes/${encodeURIComponent(n.id)}`,patch));
+
+  // guardar al salir del campo o con Enter (Ctrl+Enter en el nombre multilínea)
+  const onCommit=(el,build)=>{
+    el.addEventListener('blur',()=>{const p=build();if(p)save(p);});
+    el.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&(el.tagName!=='TEXTAREA'||e.ctrlKey)){e.preventDefault();el.blur();}
+      if(e.key==='Escape')renderPanel();
+    });
+  };
+
+  onCommit($('fLabel'),()=>{
+    const v=$('fLabel').value;
+    if(!v.trim()){toast('El nombre no puede quedar vacío',true);return null;}
+    return v===n.label?null:{label:v};
+  });
+  onCommit($('fSub'),()=>{
+    const v=$('fSub').value;
+    return v===(n.sub||'')?null:{sub:v};
+  });
+  onCommit($('fOwn'),()=>{
+    const v=$('fOwn').value===''?0:Number($('fOwn').value);
+    return v===(n.own||0)?null:{headcount:v};
+  });
+
+  $('fFix').onchange=e=>{
+    const box=$('fTotal');
+    box.style.display=e.target.checked?'':'none';
+    save({total_override:e.target.checked?Number(box.value)||0:null});
+  };
+  onCommit($('fTotal'),()=>{
+    if(!$('fFix').checked)return null;
+    const v=Number($('fTotal').value)||0;
+    return v===n.totalOverride?null:{total_override:v};
+  });
+
+  document.querySelectorAll('#pBody .sw').forEach(sw=>{
+    sw.onclick=()=>save({color:sw.dataset.color});
+  });
+
+  $('aAdd').onclick=async()=>{
+    const name=prompt('Nombre de la nueva posición:','Nuevo puesto');
+    if(name===null)return;
+    if(!name.trim()){toast('El nombre no puede quedar vacío',true);return;}
+    const cant=prompt(`¿Cuántas personas hay en "${name.replace(/\n/g,' ')}"?`,'1');
+    if(cant===null)return;
+    const data=await mutate(()=>api('POST','/api/nodes',{
+      parentId:n.id,label:name,headcount:Number(cant)||0,
+    }),'Posición agregada');
+    if(data&&data.node){
+      state.selected=data.node.id;
+      if(!state.path.includes(n.id))state.path=ancestors(n.id);
+      rebuild();
+    }
+  };
+
+  if($('aUp')){
+    $('aUp').onclick=()=>mutate(()=>api('POST',`/api/nodes/${encodeURIComponent(n.id)}/move`,{delta:-1}));
+    $('aDown').onclick=()=>mutate(()=>api('POST',`/api/nodes/${encodeURIComponent(n.id)}/move`,{delta:1}));
+    $('aDup').onclick=async()=>{
+      const data=await mutate(()=>api('POST','/api/nodes',{
+        parentId:n.parent,label:n.label,sub:n.sub,color:n.color,
+        kind:n.kind,headcount:n.own||0,
+      }),'Posición duplicada');
+      if(data&&data.node){state.selected=data.node.id;rebuild();}
+    };
+    $('aDel').onclick=async()=>{
+      const desc=countDesc(n);
+      const msg=desc
+        ? `¿Eliminar "${n.label.replace(/\n/g,' ')}" y las ${desc} posiciones que dependen de ella?`
+        : `¿Eliminar "${n.label.replace(/\n/g,' ')}"?`;
+      if(!confirm(msg))return;
+      state.selected=n.parent;
+      await mutate(()=>api('DELETE',`/api/nodes/${encodeURIComponent(n.id)}`),'Posición eliminada');
+    };
+  }
+
+  $('aExport').onclick=async()=>{
+    const data=await api('GET','/api/export');
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`organigrama-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Respaldo descargado');
+  };
+
+  $('aImport').onclick=()=>{
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='application/json,.json';
+    inp.onchange=async()=>{
+      const file=inp.files[0];if(!file)return;
+      if(!confirm('Esto reemplaza el organigrama completo por el del archivo. ¿Seguir?'))return;
+      try{
+        const parsed=JSON.parse(await file.text());
+        await mutate(()=>api('POST','/api/import',{tree:parsed.tree||parsed}),'Organigrama restaurado');
+      }catch(e){toast('El archivo no es un respaldo válido',true);}
+    };
+    inp.click();
+  };
+
+  $('aReset').onclick=async()=>{
+    if(!confirm('Esto descarta todos los cambios y vuelve a la estructura original. ¿Seguir?'))return;
+    state.selected=null;
+    await mutate(()=>api('POST','/api/reset'),'Estructura original restaurada');
+  };
+}
+
+/* ============ HOJA DE IMPRESIÓN ============
+   Una sola página A3 horizontal con todo visible, ahora con la dotación. */
+function buildPrint(){
+  const sheet=document.getElementById('printSheet');
+  const root=state.tree;
+  const halves=(root.children||[]).filter(k=>k.kind==='half');
+  const sucs=(root.children||[]).filter(k=>k.kind!=='half');
+  const RC=170, rci=182, rco=330;
+
+  function ringSVG(){
+    const W=720, c=W/2;
+    let out=`<svg viewBox="0 0 ${W} ${W}" width="100%">`;
+    out+=`<circle cx="${c}" cy="${c}" r="${rco+22}" fill="none" stroke="#173a5e" stroke-width="26"/>`;
+    halves.forEach(h=>(h.children||[]).forEach(w=>{
+      const a1=w.a0*Math.PI/180,a2=w.a1*Math.PI/180;
+      const P1=[c+rco*Math.cos(a1),c+rco*Math.sin(a1)],P2=[c+rco*Math.cos(a2),c+rco*Math.sin(a2)];
+      const P3=[c+rci*Math.cos(a2),c+rci*Math.sin(a2)],P4=[c+rci*Math.cos(a1),c+rci*Math.sin(a1)];
+      const lg=(w.a1-w.a0)>180?1:0;
+      const mid=(w.a0+w.a1)/2*Math.PI/180, tr=(rci+rco)/2;
+      const tx=c+tr*Math.cos(mid), ty=c+tr*Math.sin(mid);
+      const lines=w.label.split('\n');
+      out+=`<path d="M${P1} A${rco},${rco} 0 ${lg} 1 ${P2} L${P3} A${rci},${rci} 0 ${lg} 0 ${P4} Z" fill="${safeColor(w.color)}" stroke="#0f2947" stroke-width="5"/>`;
+      out+=`<text x="${tx}" y="${ty-(lines.length)*11}" text-anchor="middle" fill="#fff" font-size="21" font-weight="800" font-family="Segoe UI,sans-serif">`;
+      lines.forEach((l,i)=>{out+=`<tspan x="${tx}" dy="${i?23:6}">${esc(l)}</tspan>`;});
+      out+=`</text>`;
+      out+=`<text x="${tx}" y="${ty+(lines.length)*11+8}" text-anchor="middle" fill="#ffb648" font-size="19" font-weight="800" font-family="Segoe UI,sans-serif">${w.total}</text>`;
+    }));
+    halves.forEach(h=>{
+      const a1=h.a0*Math.PI/180,a2=h.a1*Math.PI/180;
+      const P1=[c+RC*Math.cos(a1),c+RC*Math.sin(a1)],P2=[c+RC*Math.cos(a2),c+RC*Math.sin(a2)];
+      const lg=(h.a1-h.a0)>180?1:0;
+      const mid=(h.a0+h.a1)/2*Math.PI/180, d=4*RC/(3*Math.PI);
+      const tx=c+d*Math.cos(mid), ty=c+d*Math.sin(mid);
+      const lines=h.label.split('\n');
+      out+=`<path d="M${c},${c} L${P1} A${RC},${RC} 0 ${lg} 1 ${P2} Z" fill="${safeColor(h.color)}" stroke="#fff" stroke-width="4" stroke-opacity=".9"/>`;
+      out+=`<text x="${tx}" y="${ty-(lines.length)*11}" text-anchor="middle" fill="#fff" font-size="20" font-weight="800" font-family="Segoe UI,sans-serif">`;
+      lines.forEach((l,i)=>{out+=`<tspan x="${tx}" dy="${i?22:6}">${esc(l)}</tspan>`;});
+      out+=`</text>`;
+      out+=`<text x="${tx}" y="${ty+(lines.length)*11+6}" text-anchor="middle" fill="#ffb648" font-size="18" font-weight="800" font-family="Segoe UI,sans-serif">${h.total}</text>`;
+    });
+    out+=`</svg>`;
+    return out;
+  }
+
+  function deptBox(d){
+    const roles=(d.children||[]).map(c=>
+      `<li><span>${esc(c.label.replace(/\n/g,' '))}</span><i>${c.total}</i></li>`).join('');
+    return `<div class="dept" style="--c:${safeColor(d.color)}">
+      <h4><span>${esc(d.label.replace(/\n/g,' '))}</span><i>${d.total}</i></h4>
+      <ul>${roles}</ul></div>`;
+  }
+  function cluster(s){
+    if(!s)return '';
+    return `<section class="cluster">
+      <div class="chead"><span class="cdot"></span>${esc(s.label.replace(/\n/g,' '))}
+        <em>${esc(s.sub||'Administrador de sucursal')}</em>
+        <span class="ctot">${s.total}</span></div>
+      <div class="depts">${(s.children||[]).map(deptBox).join('')}</div>
+    </section>`;
+  }
+
+  const areaBoxes=[].concat(...halves.map(h=>h.children||[])).map(deptBox).join('');
+  // las sucursales se reparten entre la columna izquierda y la derecha
+  const half=Math.ceil(sucs.length/2);
+  const left=sucs.slice(half).reverse(), right=sucs.slice(0,half);
+
+  sheet.innerHTML=`
+    <div class="phead">
+      <div>
+        <h1>PORCERAMICA <span>— ESTRUCTURA ORGANIZACIONAL</span></h1>
+        <div class="psub">${sucs.map(s=>esc(s.label.replace(/\n/g,' '))).join(' · ')}</div>
+      </div>
+      <div class="ptot"><b>${root.total}</b><span>PERSONAS</span></div>
+    </div>
+    <div class="pgrid">
+      <div class="pcol">${left.map(cluster).join('')}</div>
+      <div class="pmid">
+        <div class="ringwrap">${ringSVG()}</div>
+        <div class="areas">${areaBoxes}</div>
+      </div>
+      <div class="pcol">${right.map(cluster).join('')}</div>
+    </div>`;
+}
+
+document.getElementById('printBtn').onclick=()=>window.print();
+
+/* ============ ARRANQUE ============ */
+(async function init(){
+  try{
+    const cfg=await api('GET','/api/config');
+    state.requiresKey=cfg.requiresKey;
+    const data=await api('GET','/api/tree');
+    state.tree=data.tree;
+    rebuild();
+  }catch(err){
+    document.getElementById('offline').classList.add('show');
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>

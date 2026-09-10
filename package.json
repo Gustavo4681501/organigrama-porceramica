@@ -1,0 +1,15 @@
+{
+  "name": "organigrama-porceramica",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Organigrama interactivo de Porcerámica, editable y con conteo de dotación por puesto.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/run.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {}
+}

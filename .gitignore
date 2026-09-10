@@ -1,0 +1,22 @@
+# Datos y dependencias
+data/
+node_modules/
+*.log
+
+# Instrucciones y notas de asistentes de IA
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+.windsurfrules
+.github/copilot-instructions.md
+
+# Planificación interna
+planning/
+
+# Volcados de Git Bash en Windows
+*.stackdump
